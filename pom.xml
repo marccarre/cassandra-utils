@@ -1,0 +1,68 @@
+<!--
+  Copyright (c) 2013 Marc CARRE <carre.marc@gmail.com>
+  Licensed under the MIT License, available at http://opensource.org/licenses/MIT
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>com.carmatech.cassandra</groupId>
+	<artifactId>cassandra-timeuuid-utils</artifactId>
+	<version>1.0-SNAPSHOT</version>
+	<packaging>jar</packaging>
+
+	<name>cassandra-timeuuid-utils</name>
+	<url>http://maven.apache.org</url>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<java-version>1.6</java-version>
+		<hector-version>1.1-2</hector-version>
+		<joda-time-version>2.1</joda-time-version>
+		<junit-version>4.11</junit-version>
+	</properties>
+
+	<dependencies>
+		<!-- Hector and other 3rd party dependencies -->
+		<dependency>
+			<groupId>org.hectorclient</groupId>
+			<artifactId>hector-core</artifactId>
+			<version>${hector-version}</version>
+		</dependency>
+		<dependency>
+			<groupId>joda-time</groupId>
+			<artifactId>joda-time</artifactId>
+			<version>${joda-time-version}</version>
+		</dependency>
+
+		<!-- Testing -->
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>${junit-version}</version>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<source>${java-version}</source>
+					<target>${java-version}</target>
+				</configuration>
+			</plugin>
+		</plugins>
+
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-compiler-plugin</artifactId>
+					<version>3.0</version>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
+</project>
