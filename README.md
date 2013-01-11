@@ -5,7 +5,8 @@ Utilities to generate UUIDs and perform conversions from/to timestamps for:
 - Johann Burkard's UUIDs (See also: http://johannburkard.de/blog/programming/java/Java-UUID-generators-compared.html)
 - JDK's UUIDs
 
-========================
+----
+
 Copyright (c) 2013 Marc CARRE <carre.marc@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
