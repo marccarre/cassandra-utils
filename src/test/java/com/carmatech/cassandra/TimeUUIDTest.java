@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2013 Marc CARRE <carre.marc@gmail.com>
+ * Copyright (c) 2013 Marc CARRE
  * Licensed under the MIT License, available at http://opensource.org/licenses/MIT
  * 
  * Contributors:
@@ -7,9 +7,14 @@
  ******************************************************************************/
 package com.carmatech.cassandra;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.closeTo;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertTrue;
 
 import java.util.Date;
 import java.util.concurrent.Callable;
@@ -25,92 +30,21 @@ import org.junit.Test;
 import com.eaio.uuid.UUID;
 
 public class TimeUUIDTest {
+	private static final int TOLERANCE_IN_MS = 100;
+
 	@Before
 	public void before() throws InterruptedException {
 		Thread.sleep(5); // Sleep 5 ms to avoid "collisions" in the UUID generator.
 	}
 
 	@Test
-	public void reminderHexadecimalAndBitwiseOperators() {
-		assertEquals(1, 0x01); // 1 = 0000 0001 = 0x01
-		assertEquals(2, 0x02); // 2 = 0000 0010 = 0x02
-		assertEquals(15, 0x0F); // 15 = 0000 1111 = 0x0F
-		assertEquals(18, 0x12); // 18 = 0001 0010 = 0x12
-
-		// Java uses two's complement. Example on int32:
-		assertEquals(0, 0x00000000);
-		assertEquals(1, 0x00000001);
-		assertEquals(-1, 0xFFFFFFFE + 0x00000001);
-		assertEquals(-1, 0xFFFFFFFF);
-
-		// Java uses two's complement. Example on int64/long:
-		assertEquals(Long.MAX_VALUE, 0x7FFFFFFFFFFFFFFFL);
-		assertEquals(-Long.MAX_VALUE, 0x8000000000000000L + 0x0000000000000001L);
-		assertEquals(Long.MIN_VALUE, 0x8000000000000000L);
-		assertEquals(Long.MIN_VALUE, 0x7FFFFFFFFFFFFFFFL + 0x0000000000000001L);
-
-		// Bit-wise operators:
-
-		// 0xABCD = 1010 1011 1100 1101
-		// &
-		// 0x000F = 0000 0000 0000 1111
-		// =
-		// 0x000D = 0000 0000 0000 1101
-		assertEquals(0x000D, 0xABCD & 0x000F);
-
-		// 0xABCD = 1010 1011 1100 1101
-		// |
-		// 0x000F = 0000 0000 0000 1111
-		// =
-		// 0x000D = 1010 1011 1100 1111
-		assertEquals(0xABCF, 0xABCD | 0x000F);
-
-		// 0xABCD = 1010 1011 1100 1101
-		// >> 8
-		// 0xCD00 = 0000 0000 1010 1011
-		assertEquals(0x000000AB, 0x0000ABCD >> 8);
-		assertEquals(0x00000000, 0x0000ABCD >> 16);
-
-		// >> shifts with bits equal to sign bit
-		assertEquals(0xFFFFFFFF, 0xFFFFFFFF >> 8);
-		assertEquals(0x000000FF, 0x0000FFFF >> 8);
-
-		// >>> shifts with zeros
-		assertEquals(0x00FFFFFF, 0xFFFFFFFF >>> 8);
-		assertEquals(0x000000FF, 0x0000FFFF >>> 8);
-
-		// 0xABCD = 1010 1011 1100 1101
-		// << 8
-		// 0xCD00 = 1100 1101 0000 0000
-		assertEquals(0x00ABCD00, 0xABCD << 8);
-		assertEquals(0xABCD0000, 0xABCD << 16);
-	}
-
-	@Test
-	public void getTwoIdenticalUUID() {
+	public void createUUIDAsOfNow() {
 		long expectedTimestamp = new DateTime().getMillis();
 
-		UUID first = TimeUUID.toUUID(expectedTimestamp);
-		UUID second = TimeUUID.toUUID(expectedTimestamp);
+		UUID uuid = TimeUUID.createUUID();
+		long actualTimestamp = TimeUUID.toMillis(uuid);
 
-		assertEquals(first, second);
-		assertEquals(first.toString(), second.toString());
-		assertEquals(first.getTime(), second.getTime()); // Same internal time in 100s of ns since epoch.
-		assertEquals(TimeUUID.toMillis(first), TimeUUID.toMillis(second));
-	}
-
-	@Test
-	public void generateTwoDifferentUUIDs() {
-		long expectedTimestamp = new DateTime().getMillis();
-
-		UUID first = TimeUUID.createUUID(expectedTimestamp);
-		UUID second = TimeUUID.createUUID(expectedTimestamp);
-
-		assertNotSame(first, second);
-		assertNotSame(first.toString(), second.toString());
-		assertEquals(first.toString().substring(8, 36), second.toString().substring(8, 36)); // Only first 8 chars differ.
-
-		assertEquals(TimeUUID.toMillis(first), TimeUUID.toMillis(second));
+		assertThat((double) expectedTimestamp, is(closeTo(actualTimestamp, TOLERANCE_IN_MS)));
 	}
 
 	@Test
@@ -144,6 +78,33 @@ public class TimeUUIDTest {
 	}
 
 	@Test
+	public void getTwoIdenticalUUID() {
+		long expectedTimestamp = new DateTime().getMillis();
+
+		UUID first = TimeUUID.toUUID(expectedTimestamp);
+		UUID second = TimeUUID.toUUID(expectedTimestamp);
+
+		assertEquals(first, second);
+		assertEquals(first.toString(), second.toString());
+		assertEquals(first.getTime(), second.getTime()); // Same internal time in 100s of ns since epoch.
+		assertEquals(TimeUUID.toMillis(first), TimeUUID.toMillis(second));
+	}
+
+	@Test
+	public void generateTwoDifferentUUIDsWithSameTimeComponent() {
+		long expectedTimestamp = new DateTime().getMillis();
+
+		UUID first = TimeUUID.createUUID(expectedTimestamp);
+		UUID second = TimeUUID.createUUID(expectedTimestamp);
+
+		assertNotSame(first, second);
+		assertNotSame(first.toString(), second.toString());
+		assertEquals(first.toString().substring(8, 36), second.toString().substring(8, 36)); // Only first 8 chars differ.
+
+		assertEquals(TimeUUID.toMillis(first), TimeUUID.toMillis(second));
+	}
+
+	@Test
 	public void getTimestampFromUUIDAndConvertTimestampBackToUUID() {
 		UUID expectedUuid = TimeUUID.createUUID();
 
@@ -153,7 +114,7 @@ public class TimeUUIDTest {
 		assertEquals(expectedUuid, actualUuid);
 		assertEquals(expectedUuid.toString(), actualUuid.toString());
 
-		// Reminder: if we "create" a new UUID instead of just converting it back, we get a totally different UUID:
+		// REMINDER: if we "create" a new UUID instead of just converting it back, we get a totally different UUID:
 		UUID newUuid = TimeUUID.createUUID(timestamp);
 		assertNotSame(expectedUuid, newUuid);
 		assertNotSame(expectedUuid.toString(), newUuid.toString());
@@ -165,46 +126,53 @@ public class TimeUUIDTest {
 	public void twiceSameTimestampIncrementsTimestampUsedToGenerateUUID() {
 		long t0 = new DateTime().getMillis();
 
-		UUID first = TimeUUID.createUUID(t0);
-		UUID second = TimeUUID.createUUID(t0);
-		UUID third = TimeUUID.createUUID(t0);
-		UUID fourth = TimeUUID.createUUID(t0 + 1);
+		// Approximately 10,000 UUIDs can be generated with an identical time component.
+		// Therefore, creating 9,000 UUIDs is both safe and good enough for this test.
+		for (int i = 0; i < 4500; i++) {
+			UUID first = TimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
+			UUID second = TimeUUID.createUUID(t0);// Increment of 100 nanoseconds internally
 
-		assertEquals(t0, TimeUUID.toMillis(first));
-		assertEquals(t0, TimeUUID.toMillis(second));
-		assertEquals(t0, TimeUUID.toMillis(third));
-		assertEquals(t0 + 1, TimeUUID.toMillis(fourth));
+			assertThat(first, is(not(second)));
+			assertThat(TimeUUID.toMillis(first), is(t0));
+			assertThat(TimeUUID.toMillis(second), is(t0));
+		}
+
+		UUID third = TimeUUID.createUUID(t0 + 1); // Increment of 1 millisecond internally
+		UUID fourth = TimeUUID.createUUID(t0); // Create UUID back in time, latest time will be used instead
+
+		assertThat(TimeUUID.toMillis(third), is(t0 + 1));
+		assertThat(TimeUUID.toMillis(fourth), is(t0 + 1));
 	}
 
 	@Test
-	public void uuidOrderAndUUIDGeneratorIncrementsOnSameTimestamp() {
+	public void uuidsAreNaturallySortedEvenForSameTimestampInMilliseconds() {
 		long t0 = new DateTime().getMillis();
 
-		UUID first = TimeUUID.createUUID(t0);
+		UUID first = TimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
 		long t1 = TimeUUID.toMillis(first);
 
-		UUID second = TimeUUID.createUUID(t0);
+		UUID second = TimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
 		long t2 = TimeUUID.toMillis(second);
 
-		UUID third = TimeUUID.createUUID(t0 + 1);
+		UUID third = TimeUUID.createUUID(t0 + 1); // Increment of 1 millisecond internally
 		long t3 = TimeUUID.toMillis(third);
 
-		assertNotSame(first, second);
-		assertNotSame(first, third);
-		assertNotSame(second, third);
+		assertThat(first, is(not(second)));
+		assertThat(first, is(not(third)));
+		assertThat(second, is(not(third)));
 
-		assertEquals(t0, t1);
-		assertEquals(t0, t2);
-		assertNotSame(t0, t3);
-		assertEquals(t0, t3 - 1);
+		assertThat(first, is(lessThan(second)));
+		assertThat(first, is(lessThan(third)));
+		assertThat(second, is(lessThan(third)));
 
-		assertEquals(-1, first.compareTo(second));
-		assertEquals(-1, first.compareTo(third));
-		assertEquals(-1, second.compareTo(third));
+		assertThat(t1, is(t0));
+		assertThat(t2, is(t0));
 
-		assertEquals(t1, t2);
-		assertTrue(t1 < t3);
-		assertTrue(t2 < t3);
+		assertThat(t3, is(not(t0)));
+		assertThat(t3, is(t0 + 1));
+
+		assertThat(t3, is(greaterThan(t1)));
+		assertThat(t3, is(greaterThan(t2)));
 	}
 
 	@Test
@@ -256,6 +224,11 @@ public class TimeUUIDTest {
 		private final Runnable runnable;
 
 		public RepeatedOperation(final int numOfRuns, final Runnable runnable) {
+			if (numOfRuns <= 0)
+				throw new IllegalArgumentException("Number of times operation will be repeated must be STRICTLY POSITIVE but was " + numOfRuns);
+			if (runnable == null)
+				throw new IllegalArgumentException("Operation to run must NOT be null.");
+
 			this.numOfRuns = numOfRuns;
 			this.runnable = runnable;
 		}
@@ -272,14 +245,17 @@ public class TimeUUIDTest {
 		private final Runnable runnable;
 
 		public TimedOperation(final Runnable runnable) {
+			if (runnable == null)
+				throw new IllegalArgumentException("Operation to run must NOT be null.");
+
 			this.runnable = runnable;
 		}
 
 		@Override
 		public Long call() throws Exception {
-			long begin = System.nanoTime();
+			final long begin = System.nanoTime();
 			runnable.run();
-			long end = System.nanoTime();
+			final long end = System.nanoTime();
 			return end - begin;
 		}
 	}

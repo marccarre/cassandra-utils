@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2013 Marc CARRE <carre.marc@gmail.com>
+ * Copyright (c) 2013 Marc CARRE
  * Licensed under the MIT License, available at http://opensource.org/licenses/MIT
  * 
  * Contributors:
@@ -90,19 +90,14 @@ public class TimeUUID {
 	private static long toUUIDTime(final long timestampInMs) {
 		final long timestampIn100Ns = to100Ns(timestampInMs);
 
-		// Time's lowest 16 bits:
-		// 0123 4567 89AB CDEF -> 89AB CDEF 0000 0000
-		long uuidTime = timestampIn100Ns << 32;
+		// Example:
+		// Lowest 16 bits and version 1: 0123 4567 89AB CDEF -> 89AB CDEF 0000 0000 -> 89AB CDEF 0000 1000
+		// Middle 32 bits: 0123 4567 89AB CDEF -> 0000 4567 0000 0000 -> 0000 0000 4567 0000 -> 89AB CDEF 4567 1000
+		// Highest 16 bits: 0123 4567 89AB CDEF -> 0123 0000 0000 0000 -> 0000 0000 0000 0123 -> 89AB CDEF 4567 1123
 
-		// Time's middle 32 bits:
-		// 0123 4567 89AB CDEF -> 0000 4567 0000 0000 -> 0000 0000 4567 0000 -> 89AB CDEF 4567 0000
-		uuidTime |= (timestampIn100Ns & 0x0000FFFF00000000L) >> 16;
-
-		// Time's highest 16 bits and version 1:
-		// 0123 4567 89AB CDEF -> 0000 0000 0000 0123 -> 0000 0000 0000 0123 -> 0000 0000 0000 1123 -> 89AB CDEF 4567 1123
-		// or, depending on the sign bit (even if end result is identical):
-		// 1123 4567 89AB CDEF -> 1111 1111 1111 1123 -> 0000 0000 0000 0123 -> 0000 0000 0000 1123 -> 89AB CDEF 4567 1123
-		uuidTime |= 0x1000 | ((timestampIn100Ns >> 48) & 0x0FFF);
+		long uuidTime = (timestampIn100Ns << 32) | 0x0000000000001000L;
+		uuidTime |= (timestampIn100Ns & 0x0000FFFF00000000L) >>> 16;
+		uuidTime |= (timestampIn100Ns & 0xFFFF000000000000L) >>> 48;
 		return uuidTime;
 	}
 
@@ -122,19 +117,14 @@ public class TimeUUID {
 	}
 
 	private static long fromUUIDTime(final long uuidTime) {
-		// Time's highest 16 bits and version 1:
-		// 89AB CDEF 4567 1123 -> 0000 0000 0000 0123 -> 0123 0000 0000 0000
-		long timestampIn100Ns = (uuidTime & 0x0000000000000FFFL) << 48;
+		// Example:
+		// Lowest 16 bits: 89AB CDEF 4567 1123 -> 0000 0000 89AB CDEF
+		// Middle 32 bits: 89AB CDEF 4567 1123 -> 0000 0000 4567 0000 -> 0000 4567 0000 0000 -> 0000 4567 89AB CDEF
+		// Highest 16 bits and version 1: 89AB CDEF 4567 1123 -> 0000 0000 0000 0123 -> 0123 0000 0000 0000 -> 0123 4567 89AB CDEF
 
-		// Time's middle 32 bits:
-		// 89AB CDEF 4567 1123 -> 1111 89AB CDEF 4567 -> 0000 0000 0000 4567 -> 0123 4567 0000 0000
-		// or, depending on the sign bit (even if end result is identical):
-		// 79AB CDEF 4567 1123 -> 0000 79AB CDEF 4567 -> 0000 0000 0000 4567 -> 0123 4567 0000 0000
-		timestampIn100Ns |= ((uuidTime >> 16) & 0xFFFFL) << 32;
-
-		// Time's lowest 16 bits:
-		// 89AB CDEF 4567 1123 -> 0000 0000 89AB CDEF -> 0123 4567 89AB CDEF
-		timestampIn100Ns |= uuidTime >>> 32;
+		long timestampIn100Ns = uuidTime >>> 32;
+		timestampIn100Ns |= (uuidTime & 0x00000000FFFF0000L) << 16;
+		timestampIn100Ns |= (uuidTime & 0x0000000000000FFFL) << 48;
 		return from100Ns(timestampIn100Ns);
 	}
 
