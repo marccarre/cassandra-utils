@@ -8,13 +8,13 @@
 package com.carmatech.cassandra;
 
 import java.util.Date;
-import java.util.UUID;
 
 import org.joda.time.DateTime;
 
+import com.eaio.uuid.UUID;
 import com.eaio.uuid.UUIDGen;
 
-public class TimeUUID {
+public class CorbaTimeUUID {
 	private static final long NUM_100NS_INTERVALS_SINCE_UUID_EPOCH = 0x01b21dd213814000L;
 	private static long LAST_TIMESTAMP = Long.MIN_VALUE;
 
@@ -61,7 +61,7 @@ public class TimeUUID {
 	public static UUID createUUID(final long timestamp) {
 		final long timestampIn100Ns = to100Ns(timestamp);
 		final long uniqueTimestampIn100Ns = makeUnique(timestampIn100Ns);
-		return new UUID(toUUIDTime(uniqueTimestampIn100Ns), UUIDGen.getClockSeqAndNode());
+		return new com.eaio.uuid.UUID(toUUIDTime(uniqueTimestampIn100Ns), UUIDGen.getClockSeqAndNode());
 	}
 
 	private static long to100Ns(final long timestampInMs) {
@@ -120,7 +120,7 @@ public class TimeUUID {
 	 */
 	public static UUID toUUID(final long timestamp) {
 		final long timestampIn100Ns = to100Ns(timestamp);
-		return new UUID(toUUIDTime(timestampIn100Ns), UUIDGen.getClockSeqAndNode());
+		return new com.eaio.uuid.UUID(toUUIDTime(timestampIn100Ns), UUIDGen.getClockSeqAndNode());
 	}
 
 	/**
@@ -131,10 +131,22 @@ public class TimeUUID {
 	 * @return Timestamp in milliseconds.
 	 */
 	public static long toMillis(final UUID uuid) {
-		return from100Ns(uuid.timestamp());
+		return from100Ns(fromUUIDTime(uuid.getTime()));
 	}
 
 	private static long from100Ns(long timestampIn100Ns) {
 		return (timestampIn100Ns - NUM_100NS_INTERVALS_SINCE_UUID_EPOCH) / 10000;
+	}
+
+	private static long fromUUIDTime(final long uuidTime) {
+		// Example:
+		// Lowest 16 bits: 89AB CDEF 4567 1123 -> 0000 0000 89AB CDEF
+		// Middle 32 bits: 89AB CDEF 4567 1123 -> 0000 0000 4567 0000 -> 0000 4567 0000 0000 -> 0000 4567 89AB CDEF
+		// Highest 16 bits and version 1: 89AB CDEF 4567 1123 -> 0000 0000 0000 0123 -> 0123 0000 0000 0000 -> 0123 4567 89AB CDEF
+
+		long timestampIn100Ns = uuidTime >>> 32;
+		timestampIn100Ns |= (uuidTime & 0x00000000FFFF0000L) << 16;
+		timestampIn100Ns |= (uuidTime & 0x0000000000000FFFL) << 48;
+		return timestampIn100Ns;
 	}
 }

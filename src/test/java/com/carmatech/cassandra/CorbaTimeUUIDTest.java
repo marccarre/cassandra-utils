@@ -17,9 +17,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 
 import java.util.Date;
-import java.util.UUID;
 import java.util.concurrent.Callable;
 
+import me.prettyprint.cassandra.serializers.TimeUUIDSerializer;
 import me.prettyprint.cassandra.serializers.UUIDSerializer;
 import me.prettyprint.cassandra.utils.TimeUUIDUtils;
 
@@ -27,7 +27,9 @@ import org.joda.time.DateTime;
 import org.junit.Before;
 import org.junit.Test;
 
-public class TimeUUIDTest {
+import com.eaio.uuid.UUID;
+
+public class CorbaTimeUUIDTest {
 	private static final int TOLERANCE_IN_MS = 100;
 
 	@Before
@@ -39,8 +41,8 @@ public class TimeUUIDTest {
 	public void createUUIDAsOfNow() {
 		long expectedTimestamp = new DateTime().getMillis();
 
-		UUID uuid = TimeUUID.createUUID();
-		long actualTimestamp = TimeUUID.toMillis(uuid);
+		UUID uuid = CorbaTimeUUID.createUUID();
+		long actualTimestamp = CorbaTimeUUID.toMillis(uuid);
 
 		assertThat((double) expectedTimestamp, is(closeTo(actualTimestamp, TOLERANCE_IN_MS)));
 	}
@@ -49,8 +51,8 @@ public class TimeUUIDTest {
 	public void createUUIDFromTimestampAndConvertUUIDBackToTimestamp() {
 		long expectedTimestamp = new DateTime().getMillis();
 
-		UUID uuid = TimeUUID.createUUID(expectedTimestamp);
-		long actualTimestamp = TimeUUID.toMillis(uuid);
+		UUID uuid = CorbaTimeUUID.createUUID(expectedTimestamp);
+		long actualTimestamp = CorbaTimeUUID.toMillis(uuid);
 
 		assertEquals(expectedTimestamp, actualTimestamp);
 	}
@@ -59,8 +61,8 @@ public class TimeUUIDTest {
 	public void createUUIDFromDateAndConvertUUIDBackToDate() {
 		Date date = new Date();
 
-		UUID uuid = TimeUUID.createUUID(date);
-		long actualTimestamp = TimeUUID.toMillis(uuid);
+		UUID uuid = CorbaTimeUUID.createUUID(date);
+		long actualTimestamp = CorbaTimeUUID.toMillis(uuid);
 
 		assertEquals(date, new Date(actualTimestamp));
 	}
@@ -69,8 +71,8 @@ public class TimeUUIDTest {
 	public void createUUIDFromDateTimeAndConvertUUIDBackToDateTime() {
 		DateTime dateTime = new DateTime();
 
-		UUID uuid = TimeUUID.createUUID(dateTime);
-		long actualTimestamp = TimeUUID.toMillis(uuid);
+		UUID uuid = CorbaTimeUUID.createUUID(dateTime);
+		long actualTimestamp = CorbaTimeUUID.toMillis(uuid);
 
 		assertEquals(dateTime, new DateTime(actualTimestamp));
 	}
@@ -79,45 +81,45 @@ public class TimeUUIDTest {
 	public void getTwoIdenticalUUID() {
 		long expectedTimestamp = new DateTime().getMillis();
 
-		UUID first = TimeUUID.toUUID(expectedTimestamp);
-		UUID second = TimeUUID.toUUID(expectedTimestamp);
+		UUID first = CorbaTimeUUID.toUUID(expectedTimestamp);
+		UUID second = CorbaTimeUUID.toUUID(expectedTimestamp);
 
 		assertEquals(first, second);
 		assertEquals(first.toString(), second.toString());
-		assertEquals(first.timestamp(), second.timestamp()); // Same internal time in 100s of ns since epoch.
-		assertEquals(TimeUUID.toMillis(first), TimeUUID.toMillis(second));
+		assertEquals(first.getTime(), second.getTime()); // Same internal time in 100s of ns since epoch.
+		assertEquals(CorbaTimeUUID.toMillis(first), CorbaTimeUUID.toMillis(second));
 	}
 
 	@Test
 	public void generateTwoDifferentUUIDsWithSameTimeComponent() {
 		long expectedTimestamp = new DateTime().getMillis();
 
-		UUID first = TimeUUID.createUUID(expectedTimestamp);
-		UUID second = TimeUUID.createUUID(expectedTimestamp);
+		UUID first = CorbaTimeUUID.createUUID(expectedTimestamp);
+		UUID second = CorbaTimeUUID.createUUID(expectedTimestamp);
 
 		assertNotSame(first, second);
 		assertNotSame(first.toString(), second.toString());
 		assertEquals(first.toString().substring(8, 36), second.toString().substring(8, 36)); // Only first 8 chars differ.
 
-		assertEquals(TimeUUID.toMillis(first), TimeUUID.toMillis(second));
+		assertEquals(CorbaTimeUUID.toMillis(first), CorbaTimeUUID.toMillis(second));
 	}
 
 	@Test
 	public void getTimestampFromUUIDAndConvertTimestampBackToUUID() {
-		UUID expectedUuid = TimeUUID.createUUID();
+		UUID expectedUuid = CorbaTimeUUID.createUUID();
 
-		long timestamp = TimeUUID.toMillis(expectedUuid);
-		UUID actualUuid = TimeUUID.toUUID(timestamp);
+		long timestamp = CorbaTimeUUID.toMillis(expectedUuid);
+		UUID actualUuid = CorbaTimeUUID.toUUID(timestamp);
 
 		assertEquals(expectedUuid, actualUuid);
 		assertEquals(expectedUuid.toString(), actualUuid.toString());
 
 		// REMINDER: if we "create" a new UUID instead of just converting it back, we get a totally different UUID:
-		UUID newUuid = TimeUUID.createUUID(timestamp);
+		UUID newUuid = CorbaTimeUUID.createUUID(timestamp);
 		assertNotSame(expectedUuid, newUuid);
 		assertNotSame(expectedUuid.toString(), newUuid.toString());
 		assertEquals(expectedUuid.toString().substring(8, 36), newUuid.toString().substring(8, 36)); // Only first 8 chars differ.
-		assertEquals(TimeUUID.toMillis(expectedUuid), TimeUUID.toMillis(newUuid));
+		assertEquals(CorbaTimeUUID.toMillis(expectedUuid), CorbaTimeUUID.toMillis(newUuid));
 	}
 
 	@Test
@@ -127,33 +129,33 @@ public class TimeUUIDTest {
 		// Approximately 10,000 UUIDs can be generated with an identical time component.
 		// Therefore, creating 9,000 UUIDs is both safe and good enough for this test.
 		for (int i = 0; i < 4500; i++) {
-			UUID first = TimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
-			UUID second = TimeUUID.createUUID(t0);// Increment of 100 nanoseconds internally
+			UUID first = CorbaTimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
+			UUID second = CorbaTimeUUID.createUUID(t0);// Increment of 100 nanoseconds internally
 
 			assertThat(first, is(not(second)));
-			assertThat(TimeUUID.toMillis(first), is(t0));
-			assertThat(TimeUUID.toMillis(second), is(t0));
+			assertThat(CorbaTimeUUID.toMillis(first), is(t0));
+			assertThat(CorbaTimeUUID.toMillis(second), is(t0));
 		}
 
-		UUID third = TimeUUID.createUUID(t0 + 1); // Increment of 1 millisecond internally
-		UUID fourth = TimeUUID.createUUID(t0); // Create UUID back in time, latest time will be used instead
+		UUID third = CorbaTimeUUID.createUUID(t0 + 1); // Increment of 1 millisecond internally
+		UUID fourth = CorbaTimeUUID.createUUID(t0); // Create UUID back in time, latest time will be used instead
 
-		assertThat(TimeUUID.toMillis(third), is(t0 + 1));
-		assertThat(TimeUUID.toMillis(fourth), is(t0 + 1));
+		assertThat(CorbaTimeUUID.toMillis(third), is(t0 + 1));
+		assertThat(CorbaTimeUUID.toMillis(fourth), is(t0 + 1));
 	}
 
 	@Test
 	public void uuidsAreNaturallySortedEvenForSameTimestampInMilliseconds() {
 		long t0 = new DateTime().getMillis();
 
-		UUID first = TimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
-		long t1 = TimeUUID.toMillis(first);
+		UUID first = CorbaTimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
+		long t1 = CorbaTimeUUID.toMillis(first);
 
-		UUID second = TimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
-		long t2 = TimeUUID.toMillis(second);
+		UUID second = CorbaTimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
+		long t2 = CorbaTimeUUID.toMillis(second);
 
-		UUID third = TimeUUID.createUUID(t0 + 1); // Increment of 1 millisecond internally
-		long t3 = TimeUUID.toMillis(third);
+		UUID third = CorbaTimeUUID.createUUID(t0 + 1); // Increment of 1 millisecond internally
+		long t3 = CorbaTimeUUID.toMillis(third);
 
 		assertThat(first, is(not(second)));
 		assertThat(first, is(not(third)));
@@ -177,11 +179,11 @@ public class TimeUUIDTest {
 	public void resetAllowToGenerateUUIDsWithTimestampsEarlierThanLatestUsed() {
 		long t0 = new DateTime().getMillis();
 
-		UUID first = TimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
-		long t1 = TimeUUID.toMillis(first);
+		UUID first = CorbaTimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
+		long t1 = CorbaTimeUUID.toMillis(first);
 
-		UUID second = TimeUUID.createUUID(t0 + 1); // Increment of 1 millisecond internally
-		long t2 = TimeUUID.toMillis(second);
+		UUID second = CorbaTimeUUID.createUUID(t0 + 1); // Increment of 1 millisecond internally
+		long t2 = CorbaTimeUUID.toMillis(second);
 
 		assertThat(second, is(not(first)));
 		assertThat(t1, is(t0));
@@ -189,10 +191,10 @@ public class TimeUUIDTest {
 		assertThat(t2, is(greaterThan(t0)));
 
 		// WARNING: Use only for testing purposes, as it may lead to duplicate UUIDs.
-		TimeUUID.reset();
+		CorbaTimeUUID.reset();
 
-		UUID third = TimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
-		long t3 = TimeUUID.toMillis(third);
+		UUID third = CorbaTimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
+		long t3 = CorbaTimeUUID.toMillis(third);
 
 		assertThat(third, is(first)); // Duplicate UUIDs, as using the same sequence number after reset
 		assertThat(t3, is(t0));
@@ -206,8 +208,8 @@ public class TimeUUIDTest {
 		// Warm-up: to initialize all static members in all classes:
 		java.util.UUID javaUuid = TimeUUIDUtils.getUniqueTimeUUIDinMillis();
 		UUIDSerializer.get().toByteBuffer(javaUuid);
-		UUIDSerializer.get().toByteBuffer(new UUID(javaUuid.getMostSignificantBits(), javaUuid.getLeastSignificantBits()));
-		UUIDSerializer.get().toByteBuffer(TimeUUID.createUUID());
+		TimeUUIDSerializer.get().toByteBuffer(new UUID(javaUuid.getMostSignificantBits(), javaUuid.getLeastSignificantBits()));
+		TimeUUIDSerializer.get().toByteBuffer(CorbaTimeUUID.createUUID());
 
 		// Typical results for 10,000 iterations using each method:
 		// - Hector (first way): 14 ms.
@@ -230,7 +232,7 @@ public class TimeUUIDTest {
 			public void run() {
 				java.util.UUID javaUuid = TimeUUIDUtils.getUniqueTimeUUIDinMillis();
 				UUID uuid = new UUID(javaUuid.getMostSignificantBits(), javaUuid.getLeastSignificantBits());
-				UUIDSerializer.get().toByteBuffer(uuid);
+				TimeUUIDSerializer.get().toByteBuffer(uuid);
 			}
 		})).call();
 		System.out.println("Hector (second way): " + elapsedTimeForHector2 / 1000000 + " ms.");
@@ -238,8 +240,8 @@ public class TimeUUIDTest {
 		long elapsedTimeForThisClass = new TimedOperation(new RepeatedOperation(numOfRuns, new Runnable() {
 			@Override
 			public void run() {
-				UUID uuid = TimeUUID.createUUID();
-				UUIDSerializer.get().toByteBuffer(uuid);
+				UUID uuid = CorbaTimeUUID.createUUID();
+				TimeUUIDSerializer.get().toByteBuffer(uuid);
 			}
 		})).call();
 		System.out.println("Candidate (best according to this test): " + elapsedTimeForThisClass / 1000000 + " ms.");
