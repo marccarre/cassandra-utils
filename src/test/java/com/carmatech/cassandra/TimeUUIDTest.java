@@ -1,9 +1,17 @@
 /*******************************************************************************
- * Copyright (c) 2013 Marc CARRE
- * Licensed under the MIT License, available at http://opensource.org/licenses/MIT
+ * Copyright 2013 Marc CARRE
  * 
- * Contributors:
- *     Marc CARRE - initial API and implementation
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  ******************************************************************************/
 package com.carmatech.cassandra;
 
@@ -86,6 +94,35 @@ public class TimeUUIDTest {
 		assertEquals(first.toString(), second.toString());
 		assertEquals(first.timestamp(), second.timestamp()); // Same internal time in 100s of ns since epoch.
 		assertEquals(TimeUUID.toMillis(first), TimeUUID.toMillis(second));
+		assertEquals(expectedTimestamp, TimeUUID.toMillis(second));
+	}
+
+	@Test
+	public void getTwoIdenticalUUIDFromJavaDate() {
+		Date expectedDate = new Date();
+
+		UUID first = TimeUUID.toUUID(expectedDate);
+		UUID second = TimeUUID.toUUID(expectedDate);
+
+		assertEquals(first, second);
+		assertEquals(first.toString(), second.toString());
+		assertEquals(first.timestamp(), second.timestamp()); // Same internal time in 100s of ns since epoch.
+		assertEquals(TimeUUID.toMillis(first), TimeUUID.toMillis(second));
+		assertEquals(expectedDate.getTime(), TimeUUID.toMillis(second));
+	}
+
+	@Test
+	public void getTwoIdenticalUUIDFromJodaDateTime() {
+		DateTime expectedDateTime = new DateTime();
+
+		UUID first = TimeUUID.toUUID(expectedDateTime);
+		UUID second = TimeUUID.toUUID(expectedDateTime);
+
+		assertEquals(first, second);
+		assertEquals(first.toString(), second.toString());
+		assertEquals(first.timestamp(), second.timestamp()); // Same internal time in 100s of ns since epoch.
+		assertEquals(TimeUUID.toMillis(first), TimeUUID.toMillis(second));
+		assertEquals(expectedDateTime.getMillis(), TimeUUID.toMillis(second));
 	}
 
 	@Test

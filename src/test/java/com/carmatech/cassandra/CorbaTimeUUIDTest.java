@@ -1,9 +1,17 @@
 /*******************************************************************************
- * Copyright (c) 2013 Marc CARRE
- * Licensed under the MIT License, available at http://opensource.org/licenses/MIT
+ * Copyright 2013 Marc CARRE
  * 
- * Contributors:
- *     Marc CARRE - initial API and implementation
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  ******************************************************************************/
 package com.carmatech.cassandra;
 
@@ -88,6 +96,35 @@ public class CorbaTimeUUIDTest {
 		assertEquals(first.toString(), second.toString());
 		assertEquals(first.getTime(), second.getTime()); // Same internal time in 100s of ns since epoch.
 		assertEquals(CorbaTimeUUID.toMillis(first), CorbaTimeUUID.toMillis(second));
+		assertEquals(expectedTimestamp, CorbaTimeUUID.toMillis(second));
+	}
+
+	@Test
+	public void getTwoIdenticalUUIDFromJavaDate() {
+		Date expectedDate = new Date();
+
+		UUID first = CorbaTimeUUID.toUUID(expectedDate);
+		UUID second = CorbaTimeUUID.toUUID(expectedDate);
+
+		assertEquals(first, second);
+		assertEquals(first.toString(), second.toString());
+		assertEquals(first.getTime(), second.getTime()); // Same internal time in 100s of ns since epoch.
+		assertEquals(CorbaTimeUUID.toMillis(first), CorbaTimeUUID.toMillis(second));
+		assertEquals(expectedDate.getTime(), CorbaTimeUUID.toMillis(second));
+	}
+
+	@Test
+	public void getTwoIdenticalUUIDFromJodaDateTime() {
+		DateTime expectedDateTime = new DateTime();
+
+		UUID first = CorbaTimeUUID.toUUID(expectedDateTime);
+		UUID second = CorbaTimeUUID.toUUID(expectedDateTime);
+
+		assertEquals(first, second);
+		assertEquals(first.toString(), second.toString());
+		assertEquals(first.getTime(), second.getTime()); // Same internal time in 100s of ns since epoch.
+		assertEquals(CorbaTimeUUID.toMillis(first), CorbaTimeUUID.toMillis(second));
+		assertEquals(expectedDateTime.getMillis(), CorbaTimeUUID.toMillis(second));
 	}
 
 	@Test
