@@ -1,7 +1,7 @@
 cassandra-utils
 ========================
 
-Utilities to make your life easier if you use Apache Cassandra.
+Library of utilities to assist with developing applications based on Apache Cassandra.
 
 
 Features:
