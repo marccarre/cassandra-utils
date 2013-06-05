@@ -22,7 +22,7 @@
 	</parent>
 	<groupId>com.carmatechnologies.cassandra</groupId>
 	<artifactId>cassandra-utils</artifactId>
-	<version>0.2-SNAPSHOT</version>
+	<version>0.2</version>
 	<packaging>jar</packaging>
 
 	<name>cassandra-utils</name>
@@ -32,7 +32,7 @@
 		<connection>scm:git:https://github.com/marccarre/cassandra-utils.git</connection>
 		<developerConnection>scm:git:https://github.com/marccarre/cassandra-utils.git</developerConnection>
 		<url>https://github.com/marccarre/cassandra-utils.git</url>
-	  <tag>HEAD</tag>
+	  <tag>v0.2</tag>
   </scm>
 
 	<licenses>
