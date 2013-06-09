@@ -1,3 +1,18 @@
+/*******************************************************************************
+ * Copyright 2013 Marc CARRE
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
 package com.carmatech.cassandra;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -32,13 +47,23 @@ public class ShardingFrequencyTest {
 	}
 
 	@Test
-	public void calculateShardingFrequencyFromQueryVolumeDetailsAndDefaultSize() {
+	public void calculateShardingFrequencyFromQueryVolumeDetailsInSecondsAndDefaultSize() {
 		long averageSizeInBytes = 200L;
 		long writesPerTimeUnit = 10L;
 		TimeUnit timeUnit = TimeUnit.SECONDS;
 
 		ShardingFrequency frequency = ShardingFrequency.calculateFrequency(averageSizeInBytes, writesPerTimeUnit, timeUnit);
 		assertThat(frequency, is(ShardingFrequency.HOURLY));
+	}
+
+	@Test
+	public void calculateShardingFrequencyFromQueryVolumeDetailsInMinutesAndDefaultSize() {
+		long averageSizeInBytes = 80L;
+		long writesPerTimeUnit = 6L; // 1 write every 10 seconds
+		TimeUnit timeUnit = TimeUnit.MINUTES;
+
+		ShardingFrequency frequency = ShardingFrequency.calculateFrequency(averageSizeInBytes, writesPerTimeUnit, timeUnit);
+		assertThat(frequency, is(ShardingFrequency.WEEKLY));
 	}
 
 	@Test
