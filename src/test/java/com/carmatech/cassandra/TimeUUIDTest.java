@@ -15,6 +15,21 @@
  ******************************************************************************/
 package com.carmatech.cassandra;
 
+import java.util.Collections;
+import java.util.Date;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Semaphore;
+
+import org.joda.time.DateTime;
+import org.junit.Before;
+import org.junit.Test;
+
+import com.google.common.collect.Maps;
+import me.prettyprint.cassandra.serializers.UUIDSerializer;
+import me.prettyprint.cassandra.utils.TimeUUIDUtils;
+
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.closeTo;
 import static org.hamcrest.Matchers.greaterThan;
@@ -24,19 +39,8 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 
-import java.util.Date;
-import java.util.UUID;
-import java.util.concurrent.Callable;
-
-import me.prettyprint.cassandra.serializers.UUIDSerializer;
-import me.prettyprint.cassandra.utils.TimeUUIDUtils;
-
-import org.joda.time.DateTime;
-import org.junit.Before;
-import org.junit.Test;
-
 public class TimeUUIDTest {
-	private static final int TOLERANCE_IN_MS = 100;
+	private static final int TOLERANCE_IN_MS = 200;
 
 	@Before
 	public void before() throws InterruptedException {
@@ -92,37 +96,9 @@ public class TimeUUIDTest {
 
 		assertEquals(first, second);
 		assertEquals(first.toString(), second.toString());
-		assertEquals(first.timestamp(), second.timestamp()); // Same internal time in 100s of ns since epoch.
+		// Same internal time in 100s of ns since epoch.
+		assertEquals(first.timestamp(), second.timestamp());
 		assertEquals(TimeUUID.toMillis(first), TimeUUID.toMillis(second));
-		assertEquals(expectedTimestamp, TimeUUID.toMillis(second));
-	}
-
-	@Test
-	public void getTwoIdenticalUUIDFromJavaDate() {
-		Date expectedDate = new Date();
-
-		UUID first = TimeUUID.toUUID(expectedDate);
-		UUID second = TimeUUID.toUUID(expectedDate);
-
-		assertEquals(first, second);
-		assertEquals(first.toString(), second.toString());
-		assertEquals(first.timestamp(), second.timestamp()); // Same internal time in 100s of ns since epoch.
-		assertEquals(TimeUUID.toMillis(first), TimeUUID.toMillis(second));
-		assertEquals(expectedDate.getTime(), TimeUUID.toMillis(second));
-	}
-
-	@Test
-	public void getTwoIdenticalUUIDFromJodaDateTime() {
-		DateTime expectedDateTime = new DateTime();
-
-		UUID first = TimeUUID.toUUID(expectedDateTime);
-		UUID second = TimeUUID.toUUID(expectedDateTime);
-
-		assertEquals(first, second);
-		assertEquals(first.toString(), second.toString());
-		assertEquals(first.timestamp(), second.timestamp()); // Same internal time in 100s of ns since epoch.
-		assertEquals(TimeUUID.toMillis(first), TimeUUID.toMillis(second));
-		assertEquals(expectedDateTime.getMillis(), TimeUUID.toMillis(second));
 	}
 
 	@Test
@@ -134,8 +110,8 @@ public class TimeUUIDTest {
 
 		assertNotSame(first, second);
 		assertNotSame(first.toString(), second.toString());
-		assertEquals(first.toString().substring(8, 36), second.toString().substring(8, 36)); // Only first 8 chars differ.
-
+		// Only first 8 chars differ.
+		assertEquals(first.toString().substring(8, 36), second.toString().substring(8, 36));
 		assertEquals(TimeUUID.toMillis(first), TimeUUID.toMillis(second));
 	}
 
@@ -149,34 +125,44 @@ public class TimeUUIDTest {
 		assertEquals(expectedUuid, actualUuid);
 		assertEquals(expectedUuid.toString(), actualUuid.toString());
 
-		// REMINDER: if we "create" a new UUID instead of just converting it back, we get a totally different UUID:
+		// REMINDER: if we "create" a new UUID instead of just converting it back, we get a totally
+		// different UUID:
 		UUID newUuid = TimeUUID.createUUID(timestamp);
 		assertNotSame(expectedUuid, newUuid);
 		assertNotSame(expectedUuid.toString(), newUuid.toString());
-		assertEquals(expectedUuid.toString().substring(8, 36), newUuid.toString().substring(8, 36)); // Only first 8 chars differ.
+		// Only first 8 chars differ.
+		assertEquals(expectedUuid.toString().substring(8, 36), newUuid.toString().substring(8, 36));
 		assertEquals(TimeUUID.toMillis(expectedUuid), TimeUUID.toMillis(newUuid));
 	}
 
 	@Test
-	public void twiceSameTimestampIncrementsTimestampUsedToGenerateUUID() {
+	public void twiceSameTimestampChangesClockSequenceUsedToGenerateUUID() {
 		long t0 = new DateTime().getMillis();
 
-		// Approximately 10,000 UUIDs can be generated with an identical time component.
-		// Therefore, creating 9,000 UUIDs is both safe and good enough for this test.
-		for (int i = 0; i < 4500; i++) {
-			UUID first = TimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
-			UUID second = TimeUUID.createUUID(t0);// Increment of 100 nanoseconds internally
+		// 10,000 UUIDs can be generated with an identical time component and clock sequence
+		UUID first = null;
+		UUID second = null;
+
+		for (int i = 0; i < 5000; i++) {
+			first = TimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
+			second = TimeUUID.createUUID(t0);// Increment of 100 nanoseconds internally
 
 			assertThat(first, is(not(second)));
 			assertThat(TimeUUID.toMillis(first), is(t0));
 			assertThat(TimeUUID.toMillis(second), is(t0));
+			assertThat(first.clockSequence(), is(second.clockSequence()));
 		}
 
+		UUID overflow = TimeUUID.createUUID(t0);
+		assertThat(TimeUUID.toMillis(overflow), is(t0));
+		assertThat(overflow.clockSequence(), is(not(first.clockSequence())));
+
 		UUID third = TimeUUID.createUUID(t0 + 1); // Increment of 1 millisecond internally
-		UUID fourth = TimeUUID.createUUID(t0); // Create UUID back in time, latest time will be used instead
+		UUID fourth = TimeUUID.createUUID(t0); // Create UUID back in time, this will use a different clock seq
 
 		assertThat(TimeUUID.toMillis(third), is(t0 + 1));
-		assertThat(TimeUUID.toMillis(fourth), is(t0 + 1));
+		assertThat(TimeUUID.toMillis(fourth), is(t0));
+		assertThat(third.clockSequence(), is(not(fourth.clockSequence())));
 	}
 
 	@Test
@@ -211,7 +197,7 @@ public class TimeUUIDTest {
 	}
 
 	@Test
-	public void resetAllowToGenerateUUIDsWithTimestampsEarlierThanLatestUsed() {
+	public void resettingTimeUuidGeneratorAllowsToGoBackInTime() {
 		long t0 = new DateTime().getMillis();
 
 		UUID first = TimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
@@ -222,20 +208,16 @@ public class TimeUUIDTest {
 
 		assertThat(second, is(not(first)));
 		assertThat(t1, is(t0));
-		assertThat(t2, is(not(t0)));
-		assertThat(t2, is(greaterThan(t0)));
+		assertThat(t2, is(t0 + 1));
 
-		// WARNING: Use only for testing purposes, as it may lead to duplicate UUIDs.
-		TimeUUID.reset();
+		// WARNING: should only be used for testing purposes:
+		TimeUUID.resetGenerator();
 
-		UUID third = TimeUUID.createUUID(t0); // Increment of 100 nanoseconds internally
+		UUID third = TimeUUID.createUUID(t0);
 		long t3 = TimeUUID.toMillis(third);
 
-		assertThat(third, is(first)); // Duplicate UUIDs, as using the same sequence number after reset
+		assertThat(third, is(first));
 		assertThat(t3, is(t0));
-		assertThat(t3, is(t1));
-		assertThat(t3, is(not(t2)));
-		assertThat(t3, is(lessThan(t2)));
 	}
 
 	@Test
@@ -251,7 +233,7 @@ public class TimeUUIDTest {
 		// - Hector (second way): 16 ms.
 		// - Candidate (best according to this test): 5 ms.
 
-		final int numOfRuns = 10000;
+		final int numOfRuns = 50000; // N.B. 10k = default JIT compilation threshold.
 
 		long elapsedTimeForHector1 = new TimedOperation(new RepeatedOperation(numOfRuns, new Runnable() {
 			@Override
@@ -279,7 +261,59 @@ public class TimeUUIDTest {
 				UUIDSerializer.get().toByteBuffer(uuid);
 			}
 		})).call();
-		System.out.println("Candidate (best according to this test): " + elapsedTimeForThisClass / 1000000 + " ms.");
+		System.out.println("Candidate run 1 (best according to this test): " + elapsedTimeForThisClass / 1000000 + " ms.");
+
+		elapsedTimeForThisClass = new TimedOperation(new RepeatedOperation(numOfRuns, new Runnable() {
+			@Override
+			public void run() {
+				UUID uuid = TimeUUID.createUUID();
+				UUIDSerializer.get().toByteBuffer(uuid);
+			}
+		})).call();
+		System.out.println("Candidate run 2 (best according to this test): " + elapsedTimeForThisClass / 1000000 + " ms.");
+		Thread.sleep(200);
+	}
+
+	@Test
+	public void testConcurrency() throws Exception {
+
+		final int threads = 50;
+		final int iterations = 25000;
+		final Set<String> uuids = Collections.newSetFromMap(Maps.<String, Boolean>newConcurrentMap());
+
+		// Setup a bunch of threads to updates tags and aliases
+		final Semaphore latch = new Semaphore(0, true);
+		for (int ii = 0; ii < threads; ii++) {
+			final int id = ii;
+			Thread t = new Thread(new Runnable() {
+				@Override
+				public void run() {
+					try {
+						latch.acquire();
+						for (int jj = 0; jj < iterations; jj++) {
+							// Create a new UUID
+							boolean newEntry = uuids.add(TimeUUID.createUUID().toString());
+							assertThat(newEntry, is(true));
+						}
+
+
+					} catch (InterruptedException e) {
+					} finally {
+						latch.release();
+					}
+				}
+			});
+			t.start();
+		}
+
+		// Let the threads run.
+		latch.release(threads);
+		Thread.sleep(100);
+
+		// Wait for completion
+		latch.acquire(threads);
+
+		assertThat(uuids.size(), is(threads * iterations));
 	}
 
 	class RepeatedOperation implements Runnable {
