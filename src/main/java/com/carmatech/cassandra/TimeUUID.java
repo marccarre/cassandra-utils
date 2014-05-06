@@ -15,27 +15,42 @@
  ******************************************************************************/
 package com.carmatech.cassandra;
 
+/*******************************************************************************
+ * Copyright (c) 2013 Marc CARRE Licensed under the MIT License, available at
+ * http://opensource.org/licenses/MIT Contributors: Marc CARRE - initial API and implementation
+ * See also: https://github.com/marccarre/cassandra-utils
+ ******************************************************************************/
+
 import java.util.Date;
+import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.joda.time.DateTime;
 
 import com.eaio.uuid.UUIDGen;
 
-public final class TimeUUID {
-	private TimeUUID() {
-		// Pure utility class, do NOT instantiate.
-	}
-
+public class TimeUUID {
 	private static final long NUM_100NS_INTERVALS_SINCE_UUID_EPOCH = 0x01b21dd213814000L;
-	private static long lastTimestamp = Long.MIN_VALUE;
+
+	private static final AtomicLong MAX_NS = new AtomicLong(Long.MIN_VALUE);
 
 	/**
-	 * WARNING: Use only for testing purposes, as it may lead to duplicate UUIDs. Re-initialize the value of the last timestamp seen.
+	 * Clock sequence generator.
 	 */
-	public static synchronized void reset() {
-		lastTimestamp = Long.MIN_VALUE;
+	private static final Random CLOCK_SEQ_GENERATOR = new Random();
+	private static final AtomicLong CLOCK_SEQ_COUNTER = new AtomicLong((long)(CLOCK_SEQ_GENERATOR.nextDouble() * Long.MAX_VALUE));
+
+	/**
+	 * Clock sequence and node - the least significant bits.
+	 */
+	private static long node;
+	static {
+		// Extract just the node part of clockSequenceAndNode - this will be used if a new clock sequence is required.
+		node = UUIDGen.getClockSeqAndNode() & 0xC000FFFFFFFFFFFFL;
 	}
+	private static AtomicLong clockSequenceAndNode = new AtomicLong(newClockSequenceAndNode());
+
 
 	/**
 	 * Generate a new, unique UUID based on current timestamp.
@@ -45,8 +60,65 @@ public final class TimeUUID {
 	}
 
 	/**
+	 * Generate a new, unique UUID based on the provided timestamp.
+	 *
+	 * If more than 10000 UUIDs are requested in a given millisecond then the clock sequence will be incremented to accommodate the overflow. Note that the
+	 * number of unique clock sequence numbers is 16383, so this method is limited to generating ~164 million UUIDs per millisecond.
+	 *
+	 * @param timestamp
+	 *            timestamp used for the "time" component of the UUID.
+	 */
+	public static UUID createUUID(final long timestamp) {
+
+		// Loop trying to generate the new uuid.
+		for (;;) {
+			// Compare the supplied timestamp with the current max millisecond stamp
+			final long max_ns = MAX_NS.incrementAndGet();
+
+			final long ts100Ns = to100Ns(timestamp);
+			final long maxMillis = max_ns / 10000;
+			final long newMillis = ts100Ns / 10000;
+
+			if (newMillis < maxMillis) {
+				// Back-in-time - use the supplied timestamp as is, with a unique clock sequence
+				return new UUID(toUUIDTime(ts100Ns), newClockSequenceAndNode());
+			} else if (newMillis > maxMillis) {
+				// Try to set the max ms - otherwise loop
+				if (MAX_NS.compareAndSet(max_ns, ts100Ns)) {
+					// Set the max successfully - use the timestamp as is
+					return new UUID(toUUIDTime(ts100Ns), clockSequenceAndNode.get());
+				}
+			} else {
+				// Check for overflow of the millisecond timestamp.
+				if ((max_ns / 10000) > maxMillis) {
+					// Overflow. Set a new clock sequence - note that it does not matter if multiple threads set a new clock sequence.
+					final long newClockSequence = newClockSequenceAndNode();
+					clockSequenceAndNode.set(newClockSequence);
+
+					// Try to set the max_ns to the millisecond timestamp with no additional increment - otherwise loop.
+					if (MAX_NS.compareAndSet(max_ns, ts100Ns)) {
+						return new UUID(toUUIDTime(ts100Ns), newClockSequence);
+					}
+				} else {
+					return new UUID(toUUIDTime(max_ns), clockSequenceAndNode.get());
+				}
+			}
+		}
+	}
+
+	private static long newClockSequenceAndNode() {
+		long nextClockCount = CLOCK_SEQ_COUNTER.incrementAndGet();
+		while (nextClockCount < 0) {
+			CLOCK_SEQ_COUNTER.set((long)(CLOCK_SEQ_GENERATOR.nextDouble() * Long.MAX_VALUE));
+			nextClockCount = CLOCK_SEQ_COUNTER.incrementAndGet();
+		}
+
+		return node | ((nextClockCount % 0x3FFF) << 48);
+	}
+
+	/**
 	 * Generate a new, unique UUID based on the provided date-time.
-	 * 
+	 *
 	 * @param dateTime
 	 *            date-time used for the "time" component of the UUID.
 	 */
@@ -56,7 +128,7 @@ public final class TimeUUID {
 
 	/**
 	 * Generate a new, unique UUID based on the provided date.
-	 * 
+	 *
 	 * @param javaDate
 	 *            date used for the "time" component of the UUID.
 	 */
@@ -65,35 +137,22 @@ public final class TimeUUID {
 	}
 
 	/**
-	 * Generate a new, unique UUID based on the provided timestamp.
-	 * 
 	 * @param timestamp
 	 *            timestamp used for the "time" component of the UUID.
 	 */
-	public static UUID createUUID(final long timestamp) {
-		final long timestampIn100Ns = to100Ns(timestamp);
-		final long uniqueTimestampIn100Ns = makeUnique(timestampIn100Ns);
-		return new UUID(toUUIDTime(uniqueTimestampIn100Ns), UUIDGen.getClockSeqAndNode());
-	}
-
-	private static long to100Ns(final long timestampInMs) {
-		return (timestampInMs * 10000) + NUM_100NS_INTERVALS_SINCE_UUID_EPOCH;
-	}
-
-	private static synchronized long makeUnique(final long timestamp) {
-		if (timestamp > lastTimestamp) {
-			lastTimestamp = timestamp;
-			return timestamp;
-		} else {
-			return ++lastTimestamp;
-		}
+	@Deprecated
+	public static UUID toUUID(final long timestamp) {
+		return createUUID(timestamp);
 	}
 
 	private static long toUUIDTime(final long timestampIn100Ns) {
 		// Example:
-		// Lowest 16 bits and version 1: 0123 4567 89AB CDEF -> 89AB CDEF 0000 0000 -> 89AB CDEF 0000 1000
-		// Middle 32 bits: 0123 4567 89AB CDEF -> 0000 4567 0000 0000 -> 0000 0000 4567 0000 -> 89AB CDEF 4567 1000
-		// Highest 16 bits: 0123 4567 89AB CDEF -> 0123 0000 0000 0000 -> 0000 0000 0000 0123 -> 89AB CDEF 4567 1123
+		// Lowest 16 bits and version 1: 0123 4567 89AB CDEF -> 89AB CDEF 0000 0000 -> 89AB CDEF
+		// 0000 1000
+		// Middle 32 bits: 0123 4567 89AB CDEF -> 0000 4567 0000 0000 -> 0000 0000 4567 0000 -> 89AB
+		// CDEF 4567 1000
+		// Highest 16 bits: 0123 4567 89AB CDEF -> 0123 0000 0000 0000 -> 0000 0000 0000 0123 ->
+		// 89AB CDEF 4567 1123
 
 		long uuidTime = (timestampIn100Ns << 32) | 0x0000000000001000L;
 		uuidTime |= (timestampIn100Ns & 0x0000FFFF00000000L) >>> 16;
@@ -101,10 +160,11 @@ public final class TimeUUID {
 		return uuidTime;
 	}
 
+	private static long to100Ns(final long timestampInMs) {
+		return (timestampInMs * 10000) + NUM_100NS_INTERVALS_SINCE_UUID_EPOCH;
+	}
+
 	/**
-	 * WARNING: returned UUID is not unique. Get the UUID corresponding to the provided date-time and the clock sequence, which depends on the IP and MAC
-	 * addresses of the current machine, and a random component per process/JVM.
-	 * 
 	 * @param dateTime
 	 *            date-time used for the "time" component of the UUID.
 	 */
@@ -113,9 +173,6 @@ public final class TimeUUID {
 	}
 
 	/**
-	 * WARNING: returned UUID is not unique. Get the UUID corresponding to the provided date and the clock sequence, which depends on the IP and MAC addresses
-	 * of the current machine, and a random component per process/JVM.
-	 * 
 	 * @param javaDate
 	 *            date used for the "time" component of the UUID.
 	 */
@@ -124,29 +181,28 @@ public final class TimeUUID {
 	}
 
 	/**
-	 * WARNING: returned UUID is not unique. Get the UUID corresponding to the provided timestamp and the clock sequence, which depends on the IP and MAC
-	 * addresses of the current machine, and a random component per process/JVM.
-	 * 
-	 * @param timestamp
-	 *            timestamp used for the "time" component of the UUID.
-	 */
-	public static UUID toUUID(final long timestamp) {
-		final long timestampIn100Ns = to100Ns(timestamp);
-		return new UUID(toUUIDTime(timestampIn100Ns), UUIDGen.getClockSeqAndNode());
-	}
-
-	/**
 	 * Extract the "time" component of the provided UUID.
-	 * 
+	 *
 	 * @param uuid
 	 *            UUID to extract timestamp from.
 	 * @return Timestamp in milliseconds.
 	 */
 	public static long toMillis(final UUID uuid) {
-		return from100Ns(uuid.timestamp());
+		return fromUUIDTime(uuid.timestamp());
+	}
+
+	private static long fromUUIDTime(final long timestampIn100Ns) {
+		return from100Ns(timestampIn100Ns);
 	}
 
 	private static long from100Ns(long timestampIn100Ns) {
 		return (timestampIn100Ns - NUM_100NS_INTERVALS_SINCE_UUID_EPOCH) / 10000;
+	}
+
+	/**
+	 * WARNING: May cause twice the UUID to be generated. Only use this for testing purposes, never in production code.
+	 */
+	public static synchronized void resetGenerator() {
+		MAX_NS.set(Long.MIN_VALUE);
 	}
 }
