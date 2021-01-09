@@ -1,9 +1,15 @@
 # OS/IDE Files #
 .DS_Store
 .metadata/
-.settings/
-.project
+## Eclipse:
 .classpath
+.project
+.settings/
+## IntelliJ:
+*.iml
+*.ipr
+*.iws
+.idea/
 
 # Java classes #
 *.class
