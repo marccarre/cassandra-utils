@@ -1,8 +1,6 @@
-cassandra-utils
-========================
+# cassandra-utils
 
 Library of utilities to assist with developing applications based on Apache Cassandra.
-
 
 Features:
 - Sharding frequency for row keys:
